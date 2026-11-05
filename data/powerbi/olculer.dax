@@ -1,0 +1,74 @@
+// PipelineIQ · Power BI ölçüleri
+// Tümü fact_opportunity tablosuna "Yeni ölçü" olarak eklenir. Kurulum: data/powerbi/README.md
+
+// ---------------------------------------------------------------- Temel
+Fırsat Sayısı = COUNTROWS ( fact_opportunity )
+
+Kazanılan Fırsat = SUM ( fact_opportunity[is_won] )
+
+Kaybedilen Fırsat = SUM ( fact_opportunity[is_lost] )
+
+// Açık fırsatlar paydaya girmez; yoksa henüz sonuçlanmamış fırsatlar oranı düşürür.
+Kazanma Oranı = DIVIDE ( [Kazanılan Fırsat], [Kazanılan Fırsat] + [Kaybedilen Fırsat] )
+
+Kazanılan Gelir =
+CALCULATE ( SUM ( fact_opportunity[close_value] ), fact_opportunity[is_won] = 1 )
+
+Ortalama Satış Tutarı =
+CALCULATE ( AVERAGE ( fact_opportunity[close_value] ), fact_opportunity[is_won] = 1 )
+
+// Kanal ve temsilci karşılaştırmasında en doğrudan verimlilik ölçüsü.
+Fırsat Başına Gelir =
+DIVIDE ( [Kazanılan Gelir], [Kazanılan Fırsat] + [Kaybedilen Fırsat] )
+
+// ---------------------------------------------------------------- Pipeline ve tahmin
+Açık Pipeline =
+CALCULATE ( SUM ( fact_opportunity[expected_amount] ), fact_opportunity[is_open] = 1 )
+
+// CRM standardı: tutar × aşamanın tarihsel kazanma oranı
+Tahmin - Aşama Olasılığı =
+SUMX ( FILTER ( fact_opportunity, fact_opportunity[is_open] = 1 ),
+       fact_opportunity[expected_amount] * fact_opportunity[p_stage] )
+
+// Lojistik regresyon: önümüzdeki 120 günde kazanılma olasılığı
+Tahmin - Model =
+SUMX ( FILTER ( fact_opportunity, fact_opportunity[is_open] = 1 ),
+       fact_opportunity[expected_amount] * fact_opportunity[p_model] )
+
+Tahmin Farkı (Aşama / Model) = DIVIDE ( [Tahmin - Aşama Olasılığı], [Tahmin - Model] )
+
+Takılmış Pipeline =
+CALCULATE ( [Açık Pipeline], fact_opportunity[is_stalled] = 1 )
+
+Takılmış Pipeline Payı = DIVIDE ( [Takılmış Pipeline], [Açık Pipeline] )
+
+// ---------------------------------------------------------------- Süre
+Ortalama Satış Süresi (gün) =
+CALCULATE ( AVERAGE ( fact_opportunity[cycle_days] ), fact_opportunity[is_won] = 1 )
+
+// Satış süresi sağa çarpık dağılır; medyan ortalamadan daha temsilidir.
+Medyan Satış Süresi (gün) =
+CALCULATE ( MEDIAN ( fact_opportunity[cycle_days] ), fact_opportunity[is_won] = 1 )
+
+// fact_stage_history üzerinde: aşamadan çıkmış kayıtların P90 süresi = takılma eşiği
+Takılma Eşiği (P90 gün) =
+CALCULATE ( PERCENTILE.INC ( fact_stage_history[days_in_stage], 0.9 ), NOT ISBLANK ( fact_stage_history[left_date] ) )
+
+// ---------------------------------------------------------------- Huni (fact_stage_history)
+Aşamaya Ulaşan = DISTINCTCOUNT ( fact_stage_history[opportunity_id] )
+
+// Bir önceki aşamaya göre geçiş oranı. Görselde eksen: fact_stage_history[stage], sıralama: stage_order.
+Aşama Geçiş Oranı =
+VAR CurrentOrder = MAX ( fact_stage_history[stage_order] )
+VAR Previous =
+    CALCULATE ( [Aşamaya Ulaşan],
+                REMOVEFILTERS ( fact_stage_history[stage], fact_stage_history[stage_order] ),
+                fact_stage_history[stage_order] = CurrentOrder - 1 )
+RETURN IF ( CurrentOrder > 1 && CurrentOrder <= 5, DIVIDE ( [Aşamaya Ulaşan], Previous ) )
+
+// ---------------------------------------------------------------- Geriye dönük test (fact_backtest)
+MAPE - Model =
+AVERAGEX ( fact_backtest, ABS ( fact_backtest[model] - fact_backtest[actual] ) / fact_backtest[actual] )
+
+MAPE - Aşama Olasılığı =
+AVERAGEX ( fact_backtest, ABS ( fact_backtest[stage] - fact_backtest[actual] ) / fact_backtest[actual] )

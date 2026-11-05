@@ -23,7 +23,7 @@ const readCsv = (dir, name) => {
   const columns = header.split(',');
   return lines.map(line => Object.fromEntries(line.split(',').map((value, i) => [columns[i], value])));
 };
-const tables = dir => ({ pipeline: readCsv(dir, 'sales_pipeline'), accounts: readCsv(dir, 'accounts'), products: readCsv(dir, 'products'), teams: readCsv(dir, 'sales_teams') });
+const tables = dir => ({ pipeline: readCsv(dir, 'sales_pipeline'), accounts: readCsv(dir, 'accounts'), products: readCsv(dir, 'products'), teams: readCsv(dir, 'sales_teams'), history: readCsv(dir, 'stage_history') });
 const raw = tables('raw'), clean = tables('clean');
 const price = Object.fromEntries(clean.products.map(p => [p.product, Number(p.sales_price)]));
 const close = (actual, expected, digits = 2) => assert.ok(Math.abs(actual - expected) < 10 ** -digits, `${actual} ≠ ${expected}`);
@@ -56,8 +56,8 @@ test('temizlik: ham veride bilerek eklenen her sorun temiz veride giderildi', ()
   assert.ok(new Set(rawLines).size < rawLines.length, 'ham veride tekrarlanan satır olmalı');
   assert.equal(clean.pipeline.length, new Set(rawLines).size);
   // Tarih biçimleri
-  assert.ok(raw.pipeline.some(r => /^\d{2}\.\d{2}\.\d{4}$/.test(r.engage_date)));
-  assert.ok(clean.pipeline.every(r => !r.engage_date || validDate(r.engage_date)) && clean.pipeline.every(r => !r.close_date || validDate(r.close_date)));
+  assert.ok(raw.pipeline.some(r => /^\d{2}\.\d{2}\.\d{4}$/.test(r.created_date)));
+  assert.ok(clean.pipeline.every(r => !r.created_date || validDate(r.created_date)) && clean.pipeline.every(r => !r.close_date || validDate(r.close_date)));
   // Ürün ve temsilci adları
   const productNames = new Set(clean.products.map(p => p.product)), repNames = new Set(clean.teams.map(t => t.sales_agent));
   assert.ok(raw.pipeline.some(r => !productNames.has(r.product))); assert.ok(raw.pipeline.some(r => !repNames.has(r.sales_agent)));
@@ -75,20 +75,21 @@ test('temizlik: ham veride bilerek eklenen her sorun temiz veride giderildi', ()
 test('metrikler: uygulama hesapları temiz CSV ile aynı sonucu verir', () => {
   const s = summarize(views(base));
   const won = clean.pipeline.filter(r => r.deal_stage === 'Won'), lost = clean.pipeline.filter(r => r.deal_stage === 'Lost');
-  const open = clean.pipeline.filter(r => r.deal_stage === 'Prospecting' || r.deal_stage === 'Engaging');
+  const open = clean.pipeline.filter(r => r.deal_stage !== 'Won' && r.deal_stage !== 'Lost');
   assert.equal(s.wonCount, won.length); assert.equal(s.closedCount, won.length + lost.length); assert.equal(s.open.length, open.length);
   close(s.winRate, won.length / (won.length + lost.length) * 100);
   close(s.wonRevenue, won.reduce((sum, r) => sum + Number(r.close_value || 0), 0));
-  close(s.total, open.reduce((sum, r) => sum + price[r.product], 0));
+  // Açık fırsat tutarı = liste fiyatı × (1 − indirim); uygulama her kaydı kuruşa yuvarlar.
+  close(s.total, open.reduce((sum, r) => sum + Math.round(price[r.product] * (1 - (Number(r.discount_pct) || 0) / 100) * 100) / 100, 0), 0);
   close(s.lostPotential, lost.reduce((sum, r) => sum + price[r.product], 0));
   assert.equal(s.stages.reduce((sum, stage) => sum + stage.count, 0), base.opportunities.length);
-  assert.ok(s.open.every(op => op.estimated && op.amount === op.listPrice));
+  assert.ok(s.open.every(op => op.estimated && op.amount === Math.round(op.listPrice * (1 - (op.discount ?? 0) / 100) * 100) / 100));
 });
 
 test('metrikler: satış süresi, aylık gelir ve gruplamalar tutarlı', () => {
   const data = views(base), s = summarize(data);
   const cycle = salesCycle(base.opportunities);
-  assert.equal(cycle.count, s.won.filter(op => op.createdAt).length); // tarihi boşaltılan kayıtlar satış süresine girmez assert.equal(cycle.median, dataProfile.metrics.cycleMedian);
+  assert.equal(cycle.count, s.won.filter(op => op.createdAt).length);
   const closed = data.filter(op => op.closedAt).map(op => op.closedAt).sort();
   const months = monthlyRevenue(data, monthKeys(closed[0], closed.at(-1)));
   close(months.reduce((sum, m) => sum + m.revenue, 0), s.wonRevenue);
@@ -108,35 +109,44 @@ test('kalite: kurallar beklenen kayıtları işaretler', () => {
   assert.equal(quality.byCode.stalled, dataProfile.metrics.stalled);
   assert.equal(quality.byCode.owner, 0);
   assert.equal(quality.byCode.amount, stepRows('Kazanılan fırsatta tutar yok'));
-  assert.equal(quality.byCode['engage-date'], stepRows('Görüşme tarihi kapanıştan sonra'));
-  const engaging = find(base, op => op.stage === 'Engaging' && op.companyId);
-  const age = daysBetween(engaging.createdAt, asOfDate);
-  assert.equal(scoreOpportunity(engaging).issues.some(i => i.code === 'stalled'), age > stallDays);
-  const broken = { ...engaging, companyId: null, ownerId: null, createdAt: null };
+  assert.equal(quality.byCode['created-date'], 0); // hatalı tarihler aşama geçmişinden düzeltildi
+  assert.equal(quality.byCode['lead-source'], stepRows('Kaynak kanalı boş'));
+  assert.equal(quality.byCode['loss-reason'], stepRows('Kayıp nedeni girilmemiş'));
+  // Takılma kuralı aşamaya özeldir: aşamada geçen süre o aşamanın eşiğini aşmalı.
+  for (const op of base.opportunities.filter(o => o.stage === 'Proposal').slice(0, 50)) {
+    assert.equal(scoreOpportunity(op).issues.some(i => i.code === 'stalled'), daysBetween(op.stageEnteredAt, asOfDate) > stallDays.Proposal);
+  }
+  const fresh = { ...find(base, op => op.stage === 'Proposal'), stageEnteredAt: asOfDate, leadSource: 'Web' };
+  const broken = { ...fresh, companyId: null, ownerId: null, createdAt: null };
   assert.equal(scoreOpportunity(broken).score, 100 - 30 - 30 - 15); assert.equal(scoreOpportunity(broken).severity, 'critical');
+  assert.equal(scoreOpportunity({ ...fresh, leadSource: null }).score, 90);
 });
 
 test('aşama: kazanma, kaybetme ve yeniden açma tutarlı tutar/tarih/olasılık üretir', () => {
-  const op = find(base, o => o.stage === 'Engaging');
+  const op = find(base, o => o.stage === 'Proposal' && o.discount !== null);
   const listPrice = base.products.find(p => p.id === op.productId).price;
   let state = applyAction(base, { type: 'move-opportunity', id: op.id, stage: 'Won' });
   let moved = find(state, o => o.id === op.id);
-  assert.equal(moved.closedAt, asOfDate); assert.equal(moved.value, listPrice); assert.equal(moved.probability, 100);
+  // Tutarı boş fırsat kazanılınca tutarı, teklifteki indirim düşülmüş liste fiyatı olur.
+  assert.equal(moved.closedAt, asOfDate); assert.equal(moved.value, Math.round(listPrice * (1 - op.discount / 100) * 100) / 100); assert.equal(moved.probability, 100);
+  assert.equal(moved.stageEnteredAt, asOfDate);
   assert.equal(summarize(views(state)).wonCount, summarize(views(base)).wonCount + 1);
   state = applyAction(state, { type: 'move-opportunity', id: op.id, stage: 'Lost' });
   moved = find(state, o => o.id === op.id);
   assert.equal(moved.value, 0); assert.equal(moved.probability, 0); assert.equal(moved.closedAt, asOfDate);
-  state = applyAction(state, { type: 'move-opportunity', id: op.id, stage: 'Engaging' });
+  state = applyAction(state, { type: 'move-opportunity', id: op.id, stage: 'Proposal' });
   moved = find(state, o => o.id === op.id);
   assert.equal(moved.closedAt, null); assert.equal(moved.value, null); assert.equal(moved.probability, base.opportunities.find(o => o.id === op.id).probability);
   const prospect = find(base, o => o.stage === 'Prospecting');
-  const engaged = find(applyAction(base, { type: 'move-opportunity', id: prospect.id, stage: 'Engaging' }), o => o.id === prospect.id);
-  assert.equal(engaged.createdAt, asOfDate);
+  const engaged = find(applyAction(base, { type: 'move-opportunity', id: prospect.id, stage: 'Qualification' }), o => o.id === prospect.id);
+  assert.equal(engaged.createdAt, prospect.createdAt); assert.equal(engaged.stageEnteredAt, asOfDate);
+  const lost = applyAction(state, { type: 'move-opportunity', id: op.id, stage: 'Lost' });
+  assert.throws(() => applyAction(lost, { type: 'save-opportunity', id: op.id, input: { ...find(lost, o => o.id === op.id), lossReason: 'Uydurma neden' } }));
 });
 
 test('doğrulama: geçersiz fırsat ve şirket girdileri reddedilir', () => {
-  const op = base.opportunities[0]; const input = { ...op };
-  for (const invalid of [{ value: NaN }, { value: -1 }, { value: 1e12 }, { probability: 101 }, { companyId: 'yok' }, { productId: 'yok' }, { ownerId: 'yok' }, { createdAt: '2027-01-01' }, { createdAt: '2017-02-30' }, { stage: 'Closed' }])
+  const op = find(base, o => o.stage === 'Proposal'); const input = { ...op };
+  for (const invalid of [{ value: NaN }, { value: -1 }, { value: 1e12 }, { probability: 101 }, { companyId: 'yok' }, { productId: 'yok' }, { ownerId: 'yok' }, { createdAt: '2027-01-01' }, { leadSource: 'Yok' }, { discount: 120 }, { lossReason: 'Fiyat' }, { createdAt: '2017-02-30' }, { stage: 'Closed' }])
     assert.throws(() => applyAction(base, { type: 'save-opportunity', id: op.id, input: { ...input, ...invalid } }));
   const company = base.companies[0];
   assert.throws(() => applyAction(base, { type: 'save-company', id: 'yeni', input: { ...company, name: company.name.toUpperCase() } }), /zaten var/);
@@ -157,7 +167,7 @@ test('düzeltme: şirketi olmayan fırsata şirket atanınca kritik sorun kalkar
 test('saklama: yalnızca değişen kayıtlar yazılır, yenilemede korunur, sıfırlama temizler', () => {
   const values = new Map();
   const storage = { getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, v), removeItem: k => values.delete(k) };
-  const op = find(base, o => o.stage === 'Engaging');
+  const op = find(base, o => o.stage === 'Proposal');
   const first = createDemoStore(() => storage);
   first.dispatch({ type: 'move-opportunity', id: op.id, stage: 'Won' });
   first.dispatch({ type: 'preferences', input: { dateFormat: 'iso' } });
@@ -169,7 +179,7 @@ test('saklama: yalnızca değişen kayıtlar yazılır, yenilemede korunur, sıf
   assert.equal(second.getSnapshot().state.preferences.dateFormat, 'iso'); assert.equal(second.getSnapshot().warning, null);
   second.dispatch({ type: 'reset' });
   assert.equal(values.has(storageKey), false);
-  assert.equal(find(createDemoStore(() => storage).getSnapshot().state, o => o.id === op.id).stage, 'Engaging');
+  assert.equal(find(createDemoStore(() => storage).getSnapshot().state, o => o.id === op.id).stage, 'Proposal');
 });
 
 test('saklama: bozuk veya tutarsız kayıt uygulamayı çökertmez', () => {
@@ -184,7 +194,7 @@ test('saklama: bozuk veya tutarsız kayıt uygulamayı çökertmez', () => {
     assert.ok(store.getSnapshot().warning); assert.equal(store.getSnapshot().state.opportunities.length, base.opportunities.length);
   }
   const failing = createDemoStore(() => ({ getItem: () => null, setItem() { throw Error('Quota'); }, removeItem() {} }));
-  failing.dispatch({ type: 'move-opportunity', id: find(base, o => o.stage === 'Engaging').id, stage: 'Lost' });
+  failing.dispatch({ type: 'move-opportunity', id: find(base, o => o.stage === 'Proposal').id, stage: 'Lost' });
   assert.ok(failing.getSnapshot().warning);
 });
 
@@ -193,4 +203,22 @@ test('tarih ve CSV: UTC güvenli tarih, artık yıl ve kaçışlı CSV', () => {
   assert.equal(daysBetween('2017-12-30', '2017-12-31'), 1); assert.equal(formatDate('2017-12-31', 'tr'), '31.12.2017');
   const csv = buildCsv(views(base).slice(0, 2));
   assert.ok(csv.startsWith('﻿"Fırsat No"')); assert.equal(csv.split('\r\n').length, 3);
+});
+
+test('analiz: uygulama tutarları ile analiz katmanının tahmini birebir tutarlı', () => {
+  const { analysis } = load('../lib/generated/analysis.ts');
+  const open = views(base).filter(op => op.stage !== 'Won' && op.stage !== 'Lost');
+  // Her açık fırsatın bir model skoru olmalı ve skorlu her fırsat uygulamada açık olmalı.
+  assert.deepEqual(open.map(op => op.id).sort(), Object.keys(analysis.scores).sort());
+  // Uygulamanın tahmini tutarı (liste fiyatı − indirim) × model olasılığı = analiz katmanının tahmini (olasılıklar 4 haneye yuvarlı).
+  const modelForecast = open.reduce((sum, op) => sum + op.amount * analysis.scores[op.id][0], 0);
+  assert.ok(Math.abs(modelForecast - analysis.forecast.model) / analysis.forecast.model < 0.001, `${modelForecast} ≠ ${analysis.forecast.model}`);
+  assert.equal(open.length, analysis.forecast.openDeals);
+  assert.ok(Math.abs(open.reduce((sum, op) => sum + op.amount, 0) - analysis.forecast.pipeline) < 2);
+  // Takılmış fırsat tanımı uygulamada ve analizde aynı.
+  assert.equal(overallQuality(base.opportunities).byCode.stalled, analysis.forecast.stalledDeals);
+  // Kalibrasyon ve geriye dönük test anlamlı: model aşama oranından iyi ayırt etmeli ve daha az hata yapmalı.
+  assert.ok(analysis.model.auc > analysis.model.aucStage);
+  assert.ok(analysis.backtest.errors.model.mape < analysis.backtest.errors.stage.mape);
+  assert.ok(analysis.insights.length >= 5 && analysis.insights.every(i => i.title && i.finding && i.recommendation && i.page.startsWith('/')));
 });

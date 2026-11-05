@@ -1,0 +1,20 @@
+lost_at_stage,reason,deals,share_in_stage
+Prospecting,Yanıt yok,980,0.5361
+Prospecting,İhtiyaç yok,526,0.2877
+Prospecting,Zamanlama,165,0.0903
+Prospecting,Belirtilmedi,157,0.0859
+Qualification,İhtiyaç yok,419,0.3387
+Qualification,Bütçe yok,329,0.266
+Qualification,Yanıt yok,226,0.1827
+Qualification,Zamanlama,170,0.1374
+Qualification,Belirtilmedi,93,0.0752
+Proposal,Fiyat,366,0.3609
+Proposal,Rakip,277,0.2732
+Proposal,Bütçe yok,164,0.1617
+Proposal,Zamanlama,128,0.1262
+Proposal,Belirtilmedi,79,0.0779
+Negotiation,Fiyat,197,0.4209
+Negotiation,Rakip,141,0.3013
+Negotiation,Zamanlama,61,0.1303
+Negotiation,Bütçe yok,35,0.0748
+Negotiation,Belirtilmedi,34,0.0726

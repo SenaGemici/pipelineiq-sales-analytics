@@ -1,0 +1,5 @@
+stage,exits,median_days,p90_days,lost_share
+Prospecting,6367,5.0,14.0,0.2871
+Qualification,4322,8.0,21.90000000000009,0.2862
+Proposal,2923,11.0,28.0,0.3469
+Negotiation,1810,9.0,23.0,0.2586

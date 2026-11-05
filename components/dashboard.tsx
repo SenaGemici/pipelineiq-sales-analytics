@@ -10,7 +10,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContaine
 import type { OpportunityView, Stage } from "@/lib/models";
 import { inPeriod, quarterPeriods, summarize } from "@/lib/pipeline";
 import { isOpen, monthKeys, monthlyRevenue } from "@/lib/selectors";
-import { asOfDate, stallDays } from "@/lib/seed";
+import { asOfDate } from "@/lib/seed";
 import { buildCsv, formatAxis, formatNumber, formatPercent, stageColors, stageLabels } from "@/lib/presentation";
 
 export const tooltipStyle = { borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, boxShadow: "0 4px 16px #0f172a0a" };
@@ -73,14 +73,14 @@ export function Dashboard() {
 
   return (
       <main id="main" tabIndex={-1}>
-        <div className={css("page-heading")}><div><h1>Genel Bakış</h1><p>Pipeline&apos;ın anlık durumu ve seçili dönemde kapanan satışlar.</p></div>
+        <div className={css("page-heading")}><div><h1>Pipeline</h1><p>CRM kayıtlarının anlık durumu. Fırsatlarda yaptığınız düzenlemeler burada hemen görünür.</p></div>
           <div className={css("page-actions")}><label className={css("select-control")}><CalendarDays size={16}/><span className={css("sr-only")}>Kapanış dönemi seçin</span><select value={periodKey} onChange={e => { setPeriodKey(e.target.value); setExpanded(false); }}><option value="all">Tüm dönem</option>{periods.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
             <button type="button" className={css("primary-button")} onClick={() => exportData(data)}><ArrowDownToLine size={16}/>Rapor indir</button>
           </div>
         </div>
         <dl className={css("kpi-strip")} aria-label="Satış özeti">
           <Kpi title="Açık Pipeline" value={`≈ ${formatMoney(stats.total)}`} detail={`${formatNumber(stats.open.length)} açık fırsat`} explanation="Açık fırsatların toplamı. Kaynak veride açık fırsatların tutarı olmadığı için ürün liste fiyatı kullanılır."/>
-          <Kpi title="Ağırlıklı Satış Tahmini" value={formatMoney(stats.weighted)} detail="Tutar × kazanılma olasılığı" explanation="Görüşmedeki fırsatlar için olasılık, tarihsel kazanma oranından türetilir. Potansiyel aşaması için %20 varsayılır. Takılmış fırsatlar da dahildir; Veri Kalitesi ekranında ayrıca işaretlenir."/>
+          <Kpi title="Ağırlıklı Satış Tahmini" value={formatMoney(stats.weighted)} detail="Tutar × kazanılma olasılığı" explanation="Her açık fırsatın olasılığı, bulunduğu aşamaya ulaşmış ve sonuçlanmış geçmiş fırsatların kazanılma oranıdır. Takılmış fırsatlar da dahildir; Tahmin ekranındaki model bu fırsatları ayrıca değerlendirir."/>
           <Kpi title="Kazanma Oranı" value={formatPercent(stats.winRate)} detail={`${formatNumber(stats.closedCount)} kapanan fırsattan ${formatNumber(stats.wonCount)} kazanıldı`} explanation="Kazanılan fırsat sayısının, kazanılan ve kaybedilen fırsatların toplamına oranıdır. Seçili döneme göre hesaplanır."/>
           <Kpi title="Kazanılan Gelir" value={formatMoney(stats.wonRevenue)} detail={period ? period.label : "Tüm dönem"} explanation="Kazanılan fırsatların gerçekleşen satış tutarlarının toplamıdır."/>
         </dl>
@@ -105,7 +105,7 @@ export function Dashboard() {
           </Panel>
         </div>
         <div className={css("bottom-grid")}>
-          <Panel title="Son Hareketler" description="Kapanış veya görüşme tarihine göre en yeni fırsatlar" className="opportunities-panel" action={<button type="button" className={css("text-button")} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? "Daha az göster" : "Daha fazla göster"}<ArrowRight size={15}/></button>}>
+          <Panel title="Son Hareketler" description="Son aşama değişikliğine göre en yeni fırsatlar" className="opportunities-panel" action={<button type="button" className={css("text-button")} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? "Daha az göster" : "Daha fazla göster"}<ArrowRight size={15}/></button>}>
             <label className={css("table-search")}><Search size={17}/><input type="search" aria-label="Satış fırsatlarında ara" placeholder="Şirket, ürün, sorumlu veya fırsat no ara…" value={query} onChange={e => setQuery(e.target.value)}/>{query && <button type="button" className={css("icon-button")} aria-label="Aramayı temizle" onClick={() => setQuery("")}><X size={15}/></button>}</label>
             <div className={css("table-scroll")} role="region" aria-label="Satış fırsatları tablosu" tabIndex={0}><table><thead><tr><th scope="col">Şirket / Ürün</th><th scope="col">Aşama</th><th scope="col" className={css("numeric")}>Tutar</th><th scope="col">Sorumlu</th></tr></thead>
               <tbody>{recent.map(op => <tr key={op.id}><td><div className={css("company-cell")}><strong>{op.company}</strong><small>{op.product} · {formatDate(op.activityDate)}</small></div></td><td><StageBadge stage={op.stage}/></td><td className={css("numeric deal-value")}><Amount op={op} format={formatMoney}/></td><td><span className={css("owner")} title={op.owner}>{op.owner}</span></td></tr>)}</tbody>
@@ -114,7 +114,7 @@ export function Dashboard() {
           </Panel>
           <Panel title="Veri Kalitesi Uyarıları" description="Pipeline güvenilirliğini etkileyen açık fırsatlar" className="quality-panel">
             <div className={css("quality-body")}>
-              <HealthItem title={`${formatNumber(stats.stalled.length)} fırsat takılmış görünüyor`} detail={`${stallDays} günden uzun süredir görüşmede. Pipeline'ın ≈ ${formatMoney(stalledAmount)} kadarı büyük olasılıkla gerçekçi değil.`} warning={stats.stalled.length > 0}/>
+              <HealthItem title={`${formatNumber(stats.stalled.length)} fırsat takılmış görünüyor`} detail={`Bulunduğu aşamada, o aşamadan çıkan fırsatların %90'ından uzun süre kalmış. Pipeline'ın ≈ ${formatMoney(stalledAmount)} kadarı büyük olasılıkla gerçekçi değil.`} warning={stats.stalled.length > 0}/>
               <HealthItem title={`${formatNumber(missingOpen)} açık fırsatın şirketi yok`} detail="Hesap bazlı raporlarda görünmezler. Veri Kalitesi ekranından şirket atayın." warning={missingOpen > 0}/>
               {!stats.stalled.length && !missingOpen && <p className={css("quality-success")}>Takip gerektiren bir uyarı yok.</p>}
               <p className={css("quality-note")}>Analiz tarihi: {formatDate(asOfDate)} · <Link href="/veri-kalitesi">Ayrıntılar</Link></p>

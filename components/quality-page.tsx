@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { useCrm } from "./crm-provider";
@@ -10,7 +10,7 @@ import styles from "./crm.module.css";
 import { overallQuality, qualityRules } from "@/lib/quality";
 import { asOfDate } from "@/lib/seed";
 import { isOpen } from "@/lib/selectors";
-import { formatNumber } from "@/lib/presentation";
+import { formatNumber, stageLabels } from "@/lib/presentation";
 
 const PAGE = 50;
 export function QualityPage() {
@@ -44,7 +44,7 @@ export function QualityPage() {
       <label className={styles.filter}>Önem derecesi<select aria-label="Önem derecesi filtresi" value={severity} onChange={e => setSeverity(e.target.value)}><option value="all">Tümü</option><option value="critical">Kritik</option><option value="warning">Uyarı</option></select></label></div>
     <div className={styles.tableBox}><div className={styles.tableScroll} role="region" aria-label="Veri kalitesi sorunları" tabIndex={0}><table><thead><tr><th scope="col">Şirket / Fırsat</th><th scope="col">Aşama</th><th scope="col">Puan</th><th scope="col">Önem</th><th scope="col">Sorunlar</th><th scope="col">İşlem</th></tr></thead><tbody>{visible.map(record => {
       const op = viewById.get(record.opportunity.id)!;
-      return <tr key={op.id} data-quality-opportunity={op.id}><td><strong className={op.companyId ? undefined : styles.missing}>{op.company}</strong><small className={styles.rowSubtext}>{op.product} · {op.id} · {op.owner}</small></td><td><StageBadge stage={op.stage}/></td><td><span className={styles.score}>{record.score}<span className={styles.scoreTrack} aria-hidden="true"><span style={{ width: `${record.score}%` }}/></span></span></td><td><span className={`${styles.badge} ${record.severity === "critical" ? styles.critical : styles.warning}`}>{record.severity === "critical" ? "Kritik" : "Uyarı"}</span></td><td><ul className={styles.issueList}>{record.issues.map(issue => <li key={issue.code}>{issue.code === "stalled" && record.age !== null ? `${record.age} gündür görüşmede` : issue.label}</li>)}</ul></td><td><button type="button" className={styles.rowLink} aria-label={`${op.id} fırsatını düzelt`} onClick={() => setSelected(op.id)}>Düzelt</button></td></tr>;
+      return <tr key={op.id} data-quality-opportunity={op.id}><td><strong className={op.companyId ? undefined : styles.missing}>{op.company}</strong><small className={styles.rowSubtext}>{op.product} · {op.id} · {op.owner}</small></td><td><StageBadge stage={op.stage}/></td><td><span className={styles.score}>{record.score}<span className={styles.scoreTrack} aria-hidden="true"><span style={{ width: `${record.score}%` }}/></span></span></td><td><span className={`${styles.badge} ${record.severity === "critical" ? styles.critical : styles.warning}`}>{record.severity === "critical" ? "Kritik" : "Uyarı"}</span></td><td><ul className={styles.issueList}>{record.issues.map(issue => <li key={issue.code}>{issue.code === "stalled" && record.age !== null ? `${record.age} gündür ${stageLabels[record.opportunity.stage].toLocaleLowerCase("tr-TR")} aşamasında` : issue.label}</li>)}</ul></td><td><button type="button" className={styles.rowLink} aria-label={`${op.id} fırsatını düzelt`} onClick={() => setSelected(op.id)}>Düzelt</button></td></tr>;
     })}</tbody></table>{!records.length && <EmptyState>{quality.problematic.length ? "Seçtiğiniz filtrelere uygun sorun bulunamadı." : "Tüm fırsatlar eksiksiz ve güncel. Veri kaliteniz 100/100."}</EmptyState>}</div>
       <div className={styles.tableFooterAction}><ShowMore remaining={remaining} step={PAGE} onClick={more}/></div>
       <div className={css("table-footer")}><span>{formatNumber(records.length)} sorunlu fırsattan {formatNumber(visible.length)} tanesi gösteriliyor</span><span>Analiz tarihi: {formatDate(asOfDate)}</span></div></div>

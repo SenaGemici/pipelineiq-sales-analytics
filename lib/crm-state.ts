@@ -1,7 +1,7 @@
 import { opportunityStages, type Company, type CompanyInput, type CrmState, type OpportunityInput, type OpportunityRecord, type Preferences, type Stage } from "./models";
 import { validDate, roundMoney } from "./dates";
 import { isOpen } from "./selectors";
-import { asOfDate, createInitialState, dataVersion, defaultProbability } from "./seed";
+import { asOfDate, createInitialState, dataVersion, defaultProbability, leadSources, lossReasons } from "./seed";
 
 export type CrmAction =
   | { type: "save-opportunity"; id: string; input: OpportunityInput }
@@ -21,7 +21,10 @@ export function validateOpportunity(input: OpportunityInput, state: CrmState) {
   if (!optionalNumber(input.value, 0, 1_000_000_000)) throw new Error("Tutar 0 ile 1 milyar USD arasında olmalıdır.");
   if (!optionalNumber(input.probability, 0, 100) || input.probability === null) throw new Error("Olasılık 0–100 arasında olmalıdır.");
   if (input.ownerId !== null && !state.representatives.some(rep => rep.id === input.ownerId)) throw new Error("Geçerli bir sorumlu seçin.");
-  if (input.createdAt !== null && (!validDate(input.createdAt) || input.createdAt > asOfDate)) throw new Error("Görüşme tarihi analiz tarihinden sonra olamaz.");
+  if (input.createdAt !== null && (!validDate(input.createdAt) || input.createdAt > asOfDate)) throw new Error("Oluşturulma tarihi analiz tarihinden sonra olamaz.");
+  if (input.leadSource !== null && !leadSources.includes(input.leadSource)) throw new Error("Geçerli bir kaynak kanal seçin.");
+  if (input.lossReason !== null && (input.stage !== "Lost" || !lossReasons.includes(input.lossReason))) throw new Error("Kayıp nedeni yalnızca kaybedilen fırsatlarda ve listeden seçilebilir.");
+  if (!optionalNumber(input.discount, 0, 100)) throw new Error("İndirim 0–100 arasında olmalıdır.");
 }
 
 export function validateCompany(id: string, input: CompanyInput, state: CrmState): Company {
@@ -50,11 +53,13 @@ export function applyAction(state: CrmState, action: CrmAction): CrmState {
       const input = action.input;
       const closed = !isOpen(input);
       const closedAt = closed ? (previous && !isOpen(previous) && previous.closedAt ? previous.closedAt : asOfDate) : null;
-      if (input.createdAt && closedAt && closedAt < input.createdAt) throw new Error("Görüşme tarihi kapanış tarihinden sonra olamaz.");
+      if (input.createdAt && closedAt && closedAt < input.createdAt) throw new Error("Oluşturulma tarihi kapanış tarihinden sonra olamaz.");
+      // Aşama değişmediyse aşamaya giriş tarihi korunur; değiştiyse analiz tarihi olur.
+      const stageEnteredAt = previous && previous.stage === input.stage ? previous.stageEnteredAt : asOfDate;
       const opportunity: OpportunityRecord = { ...input, id: action.id,
         value: input.value === null ? null : roundMoney(input.value),
         probability: closed ? defaultProbability[input.stage] : input.probability,
-        closedAt,
+        stageEnteredAt, closedAt,
       };
       return { ...state, opportunities: previous ? state.opportunities.map(op => op.id === action.id ? opportunity : op) : [...state.opportunities, opportunity] };
     }
@@ -63,10 +68,12 @@ export function applyAction(state: CrmState, action: CrmAction): CrmState {
       if (!opportunity) throw new Error("Fırsat bulunamadı.");
       if (opportunity.stage === action.stage) return state;
       const listPrice = state.products.find(product => product.id === opportunity.productId)?.price ?? null;
-      // Kaynak veri kuralları: kazanılan fırsatın tutarı varsayılan olarak liste fiyatı, kaybedilenin 0'dır; yeniden açılan fırsat tahmine döner.
-      const value = action.stage === "Won" ? opportunity.value || listPrice : action.stage === "Lost" ? 0 : isOpen(opportunity) ? opportunity.value : null;
-      const createdAt = opportunity.createdAt ?? (action.stage === "Prospecting" ? null : asOfDate);
-      return applyAction(state, { type: "save-opportunity", id: action.id, input: { ...opportunity, stage: action.stage, value, createdAt, probability: defaultProbability[action.stage] } });
+      const quoted = listPrice === null ? null : roundMoney(listPrice * (1 - (opportunity.discount ?? 0) / 100));
+      // Veri kuralları: kazanılan fırsatın tutarı varsayılan olarak indirimli liste fiyatı, kaybedilenin 0'dır; yeniden açılan fırsat tahmine döner.
+      const value = action.stage === "Won" ? opportunity.value || quoted : action.stage === "Lost" ? 0 : isOpen(opportunity) ? opportunity.value : null;
+      const { companyId, productId, ownerId, leadSource, discount } = opportunity;
+      return applyAction(state, { type: "save-opportunity", id: action.id, input: { companyId, productId, ownerId, leadSource, discount, stage: action.stage, value,
+        createdAt: opportunity.createdAt ?? asOfDate, lossReason: action.stage === "Lost" ? opportunity.lossReason : null, probability: defaultProbability[action.stage] } });
     }
     case "preferences": {
       const preferences = { ...state.preferences, ...action.input };
@@ -103,7 +110,8 @@ export function mergeStoredChanges(base: CrmState, raw: string): CrmState {
   for (const op of stored.opportunities) {
     if (typeof op.id !== "string" || !op.id) throw new Error("Fırsat kimliği geçersiz.");
     validateOpportunity(op, state);
-    const consistent = isOpen(op) ? op.closedAt === null : validDate(op.closedAt) && op.probability === defaultProbability[op.stage] && (!op.createdAt || op.createdAt <= op.closedAt!);
+    const consistent = (op.stageEnteredAt === null || validDate(op.stageEnteredAt))
+      && (isOpen(op) ? op.closedAt === null : validDate(op.closedAt) && op.probability === defaultProbability[op.stage] && (!op.createdAt || op.createdAt <= op.closedAt!));
     if (!consistent) throw new Error("Fırsat tarihleri veya olasılığı tutarsız.");
   }
   const existing = new Set(state.opportunities.map(op => op.id));

@@ -1,118 +1,149 @@
-﻿# PipelineIQ
+﻿# PipelineIQ · CRM Verisinden Satış Kararlarına
 
-CRM verisini **temizleyen, kalitesini ölçen ve analiz eden** Türkçe bir veri yönetim platformu.
+Bir B2B yazılım şirketinin CRM verisini **temizleyen, analiz eden ve satış kararlarına çeviren** uçtan uca bir veri analizi
+vaka çalışması: Python ile veri hazırlama, DuckDB ile SQL analizleri, lojistik regresyon ile kazanma olasılığı modeli,
+geriye dönük tahmin testi, Jupyter notebook'ları, Power BI paketi ve sonuçları sunan bir web uygulaması.
 
-Projenin amacı bir CRM gösterge panosundan fazlasını göstermek: dashboard'ların güvenilir olmasını sağlayan katman,
-yani **ham dışa aktarım → temizlik → kalite kuralları → düzeltme → analiz** akışı.
+> **Veri hakkında:** Tüm veri sentetiktir. [`pipeline/generate_raw.py`](pipeline/generate_raw.py), Türkiye'de kurumsal
+> yazılım satan kurgusal bir şirketin CRM dışa aktarımını sabit bir seed ile üretir (6.658 fırsat satırı, 22.035 aşama
+> geçişi, 85 şirket, 30 temsilci, 7 ürün; Ocak 2025 – Ekim 2026). Şirketler, kişiler ve ürünler kurgusaldır.
+> Gerçek CRM verisinde sık görülen sorunlar (mükerrer kayıtlar, yazım farkları, karışık tarih biçimleri, eksik alanlar)
+> ve iş örüntüleri (kanal kalitesi farkları, ekip yapısı, indirimin azalan getirisi, unutulan fırsatlar) **bilerek**
+> eklenmiştir. Projenin gösterdiği beceri, örüntüleri "keşfetmek" değil; onları doğru yöntemlerle ölçmek, yanlış
+> yorumlardan (karıştırıcı etkenler, sansürleme, veri sızıntısı, küçük örneklem) kaçınmak ve karara çevirmektir.
 
-> **Veri hakkında:** Tüm veri sentetiktir. `pipeline/generate_raw.py`, Türkiye'de kurumsal yazılım satan kurgusal bir
-> şirketin CRM dışa aktarımını sabit bir seed ile üretir (6.604 satır, 89 şirket satırı, 30 temsilci, 7 ürün;
-> Ocak 2025 – Ekim 2026). Şirketler, kişiler ve ürünler kurgusaldır. Gerçek CRM verisinde sık görülen sorunlar
-> (mükerrer kayıtlar, yazım farkları, karışık tarih biçimleri, eksik alanlar) **bilerek** eklenmiştir;
-> amaç bunları bulup temizleyen süreci göstermektir.
+## İş problemi
 
-## Öne çıkan bulgular
+Satış yönetimi üç soruya güvenilir cevap istiyor:
 
-Temizlenmiş veri üzerinde öne çıkan noktalar:
+1. **Önümüzdeki dönemde ne kadar gelir bekleyebiliriz?** CRM'in "ağırlıklı pipeline" rakamına güvenilebilir mi?
+2. **Fırsatları nerede ve neden kaybediyoruz?** Hangi kanal, hangi aşama, hangi indirim politikası?
+3. **Ekipte kim gerçekten iyi performans gösteriyor?** Prim ve koçluk kararları neye dayanmalı?
 
-- **Pipeline şişkin.** Kazanılan fırsatların medyan satış süresi 37 gün, %90'ı 82 gün içinde kapanıyor. Görüşmedeki
-  903 fırsatın **370'i (%41)** bu eşiği aşmış; büyük olasılıkla kapatılmayı unutulmuş fırsatlar. Tahmini şişiriyorlar.
-- **Açık fırsatların %22'si hiçbir şirkete bağlı değil** (1.323 açık fırsattan 291'i). Bu bir veri girişi süreci sorunu.
-- **Temsilciler arasında büyük fark var.** Kazanma oranı temsilciye göre %49 ile %82 arasında değişiyor.
-- **Büyük ürünlerde satış süreci uzun.** Medyan satış süresi Bulut Başlangıç'ta 23 gün, Güvenlik Tam'da 66 gün.
-- Tarihsel kazanma oranı **%64,2**. Kaynakta olasılık alanı olmadığı için tahminler bu orandan türetildi.
+## Bulgular ve öneriler
 
-## Ekranlar
+| # | Bulgu | Öneri |
+|---|---|---|
+| 1 | **CRM'in standart tahmini geliri ~3 kat yüksek gösteriyor.** Aşamaya göre ağırlıklı pipeline önümüzdeki 120 gün için 2,37 milyon $ öngörüyor; kazanma modeli 0,80 milyon $. Geçmiş 10 ayda test edildiğinde standart yöntemin ortalama hatası **%174**, modelin **%26**. | Gelir planlaması model tahminiyle yapılmalı; geriye dönük test her ay tekrarlanmalı. |
+| 2 | **Açık fırsatların %58'i takılmış.** 724 açık fırsatın 420'si bulunduğu aşamada, o aşamadan çıkan fırsatların %90'ından uzun süredir bekliyor (3,57 milyon $ pipeline). Model bunların 120 gün içinde kazanılma olasılığını ortalama %8, aktif fırsatlarda %24 buluyor. | Takılmış fırsatlar 2 hafta içinde güncellenmeli ya da kayıp nedeniyle kapatılmalı. |
+| 3 | **Referans kanalı fırsat başına Outbound'un 2,5 katı gelir getiriyor** (2.165 $ / 863 $). Kazanma oranı %36'ya karşı %15; medyan satış süresi 26'ya karşı 42 gün. Ortalama satış tutarı kanallar arasında benzer: fark kanal kalitesinden geliyor. | Müşteri tavsiye programı; Outbound daha iyi hedeflenmiş hesaplara odaklanmalı. |
+| 4 | **%15 üzeri indirim kazanma şansını artırmıyor, geliri düşürüyor.** Müzakeredeki fırsatlarda liste fiyatının her dolarından elde edilen beklenen gelir %10-15 diliminde zirve yapıyor (%74), %20+ diliminde %59'a iniyor. | %15 indirim üst sınırı ve üzeri için onay akışı; politika değişikliğinden önce A/B testi (analiz gözlemsel). |
+| 5 | **En zayıf huni adımı Teklif → Müzakere (%64).** Bu aşamadaki kayıpların başlıca nedenleri fiyat (%36) ve rakip (%27). | Teklif aşaması için değer anlatımı (ROI, referans müşteri) ve rakip karşılaştırması. |
+| 6 | **Ham kazanma oranı temsilci performansını yanlış sıralıyor.** Soğuk arama ağırlıklı çalışan temsilciler ham oranda haksız biçimde geride görünüyor; ürün × kanal karışımına göre düzeltildiğinde sıralama 5 sıraya kadar değişiyor. 7 temsilcinin güven aralığı tamamen şirket ortalamasının altında. | Prim ve koçluk kararları düzeltilmiş endeks ve güven aralığıyla verilmeli. |
 
-| Adres | İçerik |
-| --- | --- |
-| `/` Genel Bakış | Açık pipeline, ağırlıklı tahmin, kazanma oranı, kazanılan gelir; çeyrek filtresi, aşama grafiği, aylık gelir trendi, CSV dışa aktarma |
-| `/satis-firsatlari` | 4 aşamalı Kanban (Potansiyel → Görüşmede → Kazanıldı / Kaybedildi), sürükle-bırak, ürün/sorumlu filtresi, sayfalı sütunlar |
-| `/sirketler` | Şirket tablosu (sektör, şehir, çalışan, holding/iştirak ilişkisi), hesap bazlı kazanma oranı ve gelir, düzenleme |
-| `/veri-kalitesi` | 5 kalite kuralı, kayıt bazında 0–100 puan, sorun türü/önem filtresi, doğrudan düzeltme |
-| `/veri-hazirlama` | Ham veri profili (sütun bazında boş/farklı değer), temizlik günlüğü, bütünlük kontrolleri, temel bulgular |
-| `/analizler` | Bölge/temsilci filtresi, satış süresi (ortalama + medyan), temsilci ve ürün performansı, liste fiyatına göre gerçekleşen fiyat oranı |
-| `/ayarlar` | Para/tarih gösterimi, tarayıcıdaki değişiklikleri sıfırlama |
+Bulgu metinleri sabit yazılmadı: [`pipeline/analyze.py`](pipeline/analyze.py) her çalıştırmada sayıları hesaplayıp metinleri
+bunlardan üretir; veri değişirse bulgular da değişir.
 
-## Veri hattı
+## Yöntem
 
 ```text
-pipeline/generate_raw.py ──► data/raw/*.csv ──► pipeline/build_dataset.py (pandas) ──► data/clean/*.csv
-   (sentetik dışa aktarım)     (kirli veri)                                       ├──► lib/generated/crm-data.ts
-                                                                                  └──► lib/generated/data-profile.ts
+generate_raw.py ──► data/raw/ ──► build_dataset.py ──► data/clean/ ──┬──► analysis/sql/*.sql (DuckDB) ──┐
+ (sentetik CRM       (kirli         (pandas: temizlik,    (temiz        │                                  ├──► analyze.py ──► lib/generated/analysis.ts (uygulama)
+  dışa aktarımı)      veri)          doğrulama, profil)    tablolar)     └──► analytics.py (model, test) ───┘              └──► data/analysis/*.csv
+                                                                                                                        export_powerbi.py ──► data/powerbi/ (yıldız şeması)
 ```
 
-```bash
-pip install -r pipeline/requirements.txt
-python pipeline/generate_raw.py     # ham veriyi üretir (sabit seed, her seferinde aynı)
-python pipeline/build_dataset.py    # temizler, doğrular, uygulama verisini üretir
-```
+### 1. Veri hazırlama ([`build_dataset.py`](pipeline/build_dataset.py))
 
-Temizlik hattı her adımı etkilediği satır sayısıyla günlüğe yazar. Uygulamadaki **Veri Hazırlama** ekranı bu günlüğü gösterir.
+Her adım etkilediği satır sayısıyla günlüğe yazılır; uygulamadaki **Veri Hazırlama** ekranı bu günlüğü gösterir.
 
 | Tür | Adım | Satır |
 | --- | --- | --- |
 | Düzeltme | Tüm alanları aynı olan tekrarlanan satırlar silindi | 45 |
-| Düzeltme | `GG.AA.YYYY` tarihler ISO biçimine çevrildi | 489 |
-| Düzeltme | Ürün ve temsilci adları ana tablolarla eşleştirildi (büyük/küçük harf, bitişik yazım, fazla boşluk) | 274 |
-| Düzeltme | Sektör ve şehir yazımları birleştirildi (`Teknolji` → `Teknoloji`, `İST` → `İstanbul`); en sık yazım referans alınır, yazım hataları benzerlikle eşleştirilir | 17 |
-| Düzeltme | Mükerrer şirketler birleştirildi (`LODOS LOJİSTİK AS` = `Lodos Lojistik A.Ş.`); hukuki ek, harf ve noktalama farkı yok sayılır, eksik alanlar kopyadan tamamlanır, fırsatlar asıl kayda taşınır | 4 şirket |
-| İşaretleme | Görüşme tarihi kapanıştan sonra görünen kayıtlar: hangi tarihin yanlış olduğu bilinemediği için görüşme tarihi boşaltılır | 16 |
-| İşaretleme | Kazanılmış ama tutarı girilmemiş fırsatlar (uydurulmaz, kritik olarak işaretlenir) | 28 |
-| İşaretleme | Şirketi olmayan fırsatlar (otomatik çıkarılamaz) | 321 |
-| Türetme | Açık fırsat tutarı = ürün liste fiyatı (arayüzde `≈` ile gösterilir) | 1.323 |
-| Türetme | Takılmış fırsat eşiği = kazanılan fırsatların satış süresinin 90. yüzdeliği (82 gün) | — |
-| Türetme | Aşama olasılıkları: Görüşmede = tarihsel kazanma oranı, Potansiyel = %20 (açıkça belirtilen varsayım) | — |
+| Düzeltme | `GG.AA.YYYY` tarihler ISO biçimine; `%12,5` gibi indirimler sayıya çevrildi | 490 + 190 |
+| Düzeltme | Ürün ve temsilci adları ana tablolarla eşleştirildi (büyük/küçük harf, bitişik yazım, boşluk) | 304 |
+| Düzeltme | Kaynak kanal, sektör ve şehir yazımları birleştirildi (`Referral` → `Referans`, `Teknolji` → `Teknoloji`, `İST` → `İstanbul`); en sık yazım referans, yazım hataları benzerlikle eşleştirilir | 299 |
+| Düzeltme | Mükerrer şirketler birleştirildi (`LODOS LOJİSTİK AS` = `Lodos Lojistik A.Ş.`): hukuki ek, harf ve noktalama farkı yok sayılır, eksik alanlar kopyadan tamamlanır, fırsatlar asıl kayda taşınır | 4 şirket |
+| Düzeltme | Kapanıştan sonraya düşen oluşturulma tarihleri, aşama geçmişindeki ilk kayıttan geri kazanıldı (tablolar arası onarım) | 16 |
+| İşaretleme | Şirketi, kaynak kanalı, kazanılan tutarı veya kayıp nedeni eksik kayıtlar (uydurulmaz; Veri Kalitesi ekranına gider) | 895 |
+| Türetme | Aşama olasılıkları (aşamaya ulaşmış fırsatların tarihsel kazanma oranı) ve aşama bazında takılma eşikleri (P90) | — |
 
-Temizlikten sonra 12 bütünlük kontrolü çalışır: tekil kimlik, okunabilir tarihler, aşama/tarih tutarlılığı, fırsat → şirket/ürün/temsilci
-ve şirket → ana şirket referansları, tekil şirket adları. Bilerek bırakılan tek açık sorun "şirketi olmayan fırsatlar"dır;
-bu kayıtlar uygulamada düzeltilir.
+Temizlikten sonra 14 bütünlük kontrolü çalışır (tekil kimlik, tarih tutarlılığı, aşama geçmişi ↔ güncel aşama, tablolar arası
+referanslar, tekil şirket adları). Bilerek açık bırakılan tek sorun "şirketi olmayan fırsatlar"dır; uygulamada düzeltilir.
 
-## Veri kalitesi kuralları
+### 2. SQL analizleri ([`analysis/sql/`](analysis/sql))
 
-| Kural | Ceza | Önem |
-| --- | --- | --- |
-| Şirket bağlantısı yok | 30 | Kritik |
-| Sorumlu kişi yok | 30 | Kritik |
-| Kazanılan fırsatın tutarı eksik/0 | 30 | Kritik |
-| Takılmış fırsat (82+ gün görüşmede) | 20 | Uyarı |
-| Potansiyel dışı aşamada görüşme tarihi eksik | 15 | Uyarı |
+Her dosya bir iş sorusunu cevaplar ve temiz CSV'ler üzerinde DuckDB ile çalışır: huni, kanal performansı, aşama süreleri,
+bekleme ile ilerleme ilişkisi, kayıp nedenleri, karışıma göre düzeltilmiş temsilci performansı (Wilson güven aralığıyla),
+indirim etkisi, ürün ve satış süresi, aylık trend. Pencere fonksiyonları (`lead`, `lag`, `first_value`), CTE'ler ve
+yüzdelik fonksiyonları kullanılır.
 
-Her fırsat 100 puanla başlar. Genel skor tüm fırsatların ortalamasıdır. Düzeltmeler anında yeniden puanlanır.
-Analiz tarihi veri setinin son günüdür (**31.10.2026**); güncellik kuralları bu tarihe göre çalışır.
+### 3. Kazanma olasılığı modeli ([`analytics.py`](pipeline/analytics.py), [notebook 02](notebooks/02_kazanma_modeli.ipynb))
 
-## Metrik tanımları
+- **Model:** Lojistik regresyon (one-hot + standartlaştırma + L2). Özellikler: o anki aşama, aşamada geçen süre, fırsat yaşı,
+  kanal, ürün, temsilci, bölge, sektör, şirket büyüklüğü, teklif indirimi.
+- **Eğitim satırları:** Her fırsat, ziyaret ettiği her aşamada 0, 7, 14, 30… günlerde birer kontrol noktası üretir; model
+  "aşamaya yeni girmiş" ile "aylardır bekleyen" fırsatı ayırt etmeyi öğrenir.
+- **Hedef: "önümüzdeki 120 günde kazanıldı mı".** Yalnızca sonuçlanmış fırsatlarla "eninde sonunda kazanıldı mı" hedefi
+  **sansürleme yanlılığı** yaratır: hiç kapanmayan, unutulmuş fırsatlar eğitime girmez ve model onları tanıyamaz.
+  Ufuk tabanlı hedefte bu fırsatlar "kazanılmadı" olarak eğitime girer; notebook'ta iki yaklaşım takılmış fırsatlar
+  üzerinde karşılaştırılır (sansürlenmiş model iki kattan fazla olasılık veriyor).
+- **Özellik kararı:** "İndirim var mı" bayrağı, geç aşamalarla %94 aynı bilgiyi taşıdığı için çıkarıldı (çoklu doğrusallık);
+  ayırt etme gücü kaybı ihmal edilebilir, katsayılar kararlı ve yorumlanabilir hale geliyor.
+- **Doğrulama:** Zamana göre bölme (1 Mart 2026 öncesi eğitim, sonrası test). ROC AUC **0,747** (aşama oranı 0,668),
+  Brier **0,175** (0,191). Kalibrasyon grafiği köşegene yakın: olasılıklar gelire çevrilebilir.
 
-- **Kazanma oranı** = kazanılan / (kazanılan + kaybedilen). Açık fırsatlar paydaya girmez.
-- **Açık pipeline** = açık fırsatların tutarı; tutar yoksa ürün liste fiyatı.
-- **Ağırlıklı tahmin** = Σ açık fırsat tutarı × olasılık.
-- **Satış süresi** = görüşme başlangıcından kazanılmaya kadar geçen gün (ortalama ve medyan).
-- **Kaçan potansiyel** = kaybedilen fırsatların liste fiyatı toplamı (kaybedilen fırsatta tutar 0 tutulur).
-- **Fiyat oranı** = kazanılan satış tutarı / liste fiyatı ortalaması (%100 altı indirim).
+### 4. Geriye dönük tahmin testi ([notebook 03](notebooks/03_tahmin_geriye_donuk_test.ipynb))
 
-## Mimari
+Ekim 2025 – Temmuz 2026 arasında her ayın başında: o gün açık olan fırsatlar aşama geçmişinden yeniden kurulur, model
+**yalnızca o güne kadar bilinen veriyle** eğitilir ve önümüzdeki 120 günün geliri üç yöntemle tahmin edilip gerçekleşenle
+karşılaştırılır. Sızıntıyı önlemek için her tahmin yalnızca o tarihte bilinen alanları kullanır.
 
-Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, Recharts. Sunucu veya veritabanı yoktur; uygulama statik olarak derlenir.
+| Yöntem | Ortalama mutlak hata | Ortalama sapma |
+|---|---|---|
+| Aşama olasılığı (CRM standardı) | %174 | +%174 |
+| Genel kazanma oranı | %68 | +%68 |
+| **Kazanma modeli** | **%26** | +%26 |
 
-- `lib/models.ts`: normalize model (Company, Representative, Product, OpportunityRecord) ve okuma modeli.
-- `lib/seed.ts`: üretilen veriden başlangıç durumu ve veri sürümü.
-- `lib/crm-state.ts`: saf state geçişleri ve doğrulama (aşama değişiminde tutar/tarih/olasılık kuralları, mükerrer şirket adı kontrolü).
-- `lib/demo-store.ts`: tarayıcıda **yalnızca değişen kayıtları** saklar. Kayıtlar veri sürümüyle etiketlenir; veri yeniden üretilirse eski
-  değişiklikler yeni veriye karıştırılmaz. Bozuk kayıt uygulamayı çökertmez.
-- `lib/selectors.ts`, `lib/pipeline.ts`, `lib/quality.ts`: metrik, gruplama ve kalite hesapları.
-- `components/`: ekranlar. Büyük listeler sayfalı gösterilir.
+### 5. Temsilci performansı
 
-## Kontroller
+Ham kazanma oranı, temsilcinin becerisinin yanında hangi kanaldan fırsat aldığını da ölçer (soğuk arama ağırlıklı
+temsilcilerde Outbound payı ile ham oran korelasyonu −0,31). Her fırsat için aynı ürün × kanal grubundaki şirket oranı
+"beklenen" kabul edilir; düzeltilmiş endeks = gerçekleşen kazanç / beklenen kazanç (bu korelasyon 0,05'e iniyor).
+Belirsizlik Wilson %95 güven aralığıyla gösterilir.
+
+## Sınırlamalar
+
+- Veri sentetik; örüntülerin varlığı üreticide tanımlı. Değerlendirilmesi gereken, kullanılan yöntemlerin doğruluğudur.
+- İndirim analizi gözlemseldir: yüksek indirim verilen fırsatlar zaten zor fırsatlar olabilir. Nedensellik için deney gerekir.
+- Model doğrusal; indirimin azalan getirisi gibi doğrusal olmayan ilişkileri tam yakalamaz. Kontrol noktaları aynı fırsattan
+  birden çok satır ürettiği için katsayı standart hataları olduğundan dar görünür (tahmin için sorun değil).
+- Modelde de pozitif bir sapma var (+%26); ilk aylarda eğitim verisinin az olması bunun bir nedeni. İzlenmeli.
+
+## Proje yapısı
+
+| Yol | İçerik |
+| --- | --- |
+| [`pipeline/`](pipeline) | `generate_raw.py` (sentetik veri) → `build_dataset.py` (temizlik) → `analyze.py` (SQL + model + bulgular) → `export_powerbi.py`; ortak kütüphane `analytics.py` |
+| [`analysis/sql/`](analysis/sql) | İş sorusu başına bir DuckDB sorgusu |
+| [`notebooks/`](notebooks) | 01 keşifsel analiz · 02 kazanma modeli · 03 tahmin ve geriye dönük test (çıktılarıyla) |
+| [`data/`](data) | `raw/` (kirli) · `clean/` (temiz) · `analysis/` (analiz sonuçları) · [`powerbi/`](data/powerbi) (yıldız şeması, DAX ölçüleri, kurulum rehberi) |
+| `app/`, `components/`, `lib/` | Web uygulaması (Next.js, TypeScript, Recharts) |
+
+## Yeniden üretme
 
 ```bash
-npx tsc --noEmit
-npm run lint
-npm run build
-node --test scripts/check-data.mjs
+pip install -r pipeline/requirements.txt
+python pipeline/generate_raw.py      # ham veri (sabit seed: her seferinde aynı)
+python pipeline/build_dataset.py     # temizlik, doğrulama, uygulama verisi
+python pipeline/analyze.py           # SQL analizleri, model, geriye dönük test, bulgular
+python pipeline/export_powerbi.py    # Power BI tabloları
+
+npm install && npm run dev           # uygulama: http://localhost:3000
+node --test scripts/check-data.mjs   # veri, temizlik, metrik ve analiz tutarlılığı testleri
 ```
 
-`check-data.mjs`, ham veride bilerek eklenen her sorunun temiz veride giderildiğini, uygulamanın hesapladığı metriklerin
-pandas'ın ürettiği temiz CSV ile birebir aynı olduğunu, kalite kurallarını, aşama geçişlerini, doğrulamayı ve tarayıcı saklamasını test eder.
+## Web uygulaması
 
-> `scripts/check-dashboard.mjs` ve `scripts/check-crm.mjs` tarayıcı testleri önceki demo verisine göre yazılmıştır
-> ve yeni veriye göre güncellenmeleri gerekir.
+| Bölüm | Ekranlar |
+| --- | --- |
+| **Analiz** | Bulgular ve Öneriler · Huni ve Kanallar · Satış Tahmini (geriye dönük test, kalibrasyon, odds oranları, açık fırsat skorları) · Ekip Performansı (güven aralıkları, düzeltilmiş endeks, indirim etkisi) · Satış Süresi |
+| **Veri** | Veri Hazırlama (ham veri profili, temizlik günlüğü, bütünlük kontrolleri) · Veri Kalitesi (7 kural, kayıt bazında puan, doğrudan düzeltme) |
+| **CRM** | Pipeline · Satış Fırsatları (6 aşamalı Kanban) · Şirketler · Ayarlar |
+
+Analiz ekranları temel veri üzerinden hesaplanmış raporlardır; CRM ekranları ise canlıdır (düzenlemeler tarayıcıda saklanır,
+veri sürümüyle etiketlenir). `check-data.mjs`, uygulamanın hesapladığı tutarların ve takılmış fırsat tanımının Python analiz
+katmanıyla birebir aynı olduğunu da test eder.
+
+> `scripts/check-dashboard.mjs` ve `scripts/check-crm.mjs` tarayıcı testleri önceki demo verisine göre yazılmıştır ve
+> güncellenmeleri gerekir.

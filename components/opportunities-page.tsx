@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { CalendarDays, Plus, UserRound } from "lucide-react";
@@ -34,7 +34,7 @@ function Column({ stage, records, resetKey, over, dragging, onOver, onLeave, onD
         <span className={op.companyId ? undefined : styles.missing}>{op.company}</span><small>{op.product} · {op.id}</small></button>
       <p className={styles.cardAmount}>{op.stage === "Lost" ? <span className={styles.estimate}>Kaybedildi</span> : <Amount op={op} format={formatMoney}/>}</p>
       <p className={styles.cardMeta}><UserRound size={13}/>{op.owner}</p>
-      <p className={styles.cardMeta}><CalendarDays size={13}/>{op.closedAt ? `Kapanış ${formatDate(op.closedAt)}` : op.createdAt ? `Görüşme ${formatDate(op.createdAt)}${isStalled(op) ? " · takılmış" : ""}` : "Görüşme başlamadı"}</p>
+      <p className={styles.cardMeta}><CalendarDays size={13}/>{op.closedAt ? `Kapanış ${formatDate(op.closedAt)}` : op.stageEnteredAt ? `Aşamada ${formatDate(op.stageEnteredAt)} tarihinden beri${isStalled(op) ? " · takılmış" : ""}` : "Tarih yok"}</p>
       <select aria-label={`${op.company} ${op.id} aşamasını değiştir`} value={op.stage} onChange={e => onMove(op.id, e.target.value as Stage)}>{opportunityStages.map(stage => <option key={stage} value={stage}>{stageLabels[stage]}</option>)}</select>
     </article>)}
     <ShowMore remaining={remaining} step={PAGE} onClick={more} label="fırsat"/>

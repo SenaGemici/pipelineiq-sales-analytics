@@ -7,7 +7,9 @@ import { dashboardClass as css } from "./dashboard-styles";
 import styles from "./crm.module.css";
 import { dataProfile } from "@/lib/generated/data-profile";
 import type { StepKind } from "@/lib/dataset-types";
-import { formatNumber, formatPercent } from "@/lib/presentation";
+import { formatNumber, formatPercent, stageLabels } from "@/lib/presentation";
+import { stallDays } from "@/lib/seed";
+import type { OpenStage } from "@/lib/models";
 
 const kinds: Record<StepKind, { label: string; className: string }> = {
   fix: { label: "Düzeltildi", className: styles.kindFix },
@@ -15,7 +17,7 @@ const kinds: Record<StepKind, { label: string; className: string }> = {
   derive: { label: "Türetildi", className: styles.kindDerive },
   note: { label: "Bilgi", className: styles.kindNote },
 };
-const tableLabels: Record<string, string> = { accounts: "Şirketler", products: "Ürünler", sales_teams: "Satış ekibi", sales_pipeline: "Satış fırsatları" };
+const tableLabels: Record<string, string> = { accounts: "Şirketler", products: "Ürünler", sales_teams: "Satış ekibi", sales_pipeline: "Satış fırsatları", stage_history: "Aşama geçmişi" };
 
 /** pipeline/build_dataset.py çıktısını gösterir: ham veri profili, temizlik günlüğü ve bütünlük kontrolleri. */
 export function DataPrepPage() {
@@ -32,13 +34,13 @@ export function DataPrepPage() {
       <Kpi title="Ham Kayıt" value={formatNumber(rawRows)} detail={`${tables.length} tablo · ${formatDate(metrics.dateRange[0])} – ${formatDate(metrics.dateRange[1])}`}/>
       <Kpi title="Düzeltilen Değer" value={formatNumber(fixedRows)} detail={`${steps.filter(step => step.kind === "fix").length} otomatik düzeltme kuralı`} explanation="Yazım hataları ve katalogla eşleşmeyen ürün adları gibi, anlamı değiştirmeden düzeltilebilen değerler."/>
       <Kpi title="Bütünlük Kontrolü" value={`${passed}/${checks.length}`} detail="Başarılı kontrol" explanation="Tekil kimlik, aşama/tarih tutarlılığı ve tablolar arası referans kontrolleri."/>
-      <Kpi title="Takılmış Fırsat" value={formatNumber(metrics.stalled)} detail={`${formatNumber(metrics.engaging)} görüşmedeki fırsattan`} explanation={`Kazanılan fırsatların %90'ı ${metrics.cycleP90} gün içinde kapanmış. Görüşmedeki fırsatların medyan yaşı ise ${metrics.engagingAgeMedian} gün.`}/>
+      <Kpi title="Takılmış Fırsat" value={formatNumber(metrics.stalled)} detail={`${formatNumber(metrics.open)} açık fırsattan`} explanation={`Bulunduğu aşamada, o aşamadan çıkan fırsatların %90'ından uzun süre kalmış açık fırsatlar. Eşikler: ${Object.entries(stallDays).map(([stage, days]) => `${stageLabels[stage as OpenStage]} ${days} gün`).join(", ")}.`}/>
     </dl>
     <Panel title="Temel Bulgular" description="Temizlik sırasında ortaya çıkan, karar vericiye aktarılması gereken noktalar">
-      <p className={styles.insight}><strong>Pipeline büyük ölçüde şişkin.</strong> Kazanılan fırsatların medyan satış süresi {metrics.cycleMedian} gün, %90&apos;ı ise {metrics.cycleP90} gün içinde kapanıyor. Buna karşın görüşmedeki fırsatların medyan yaşı {metrics.engagingAgeMedian} gün ve {formatNumber(metrics.engaging)} fırsatın {formatNumber(metrics.stalled)} tanesi bu eşiği aşmış. Bu kayıtlar ya kapatılmalı ya da güncellenmeli; aksi halde tahminler gerçeğin üzerinde kalır.</p>
+      <p className={styles.insight}><strong>Açık pipeline&apos;ın %{formatNumber(metrics.stalled / Math.max(1, metrics.open) * 100)}&apos;i takılmış fırsatlardan oluşuyor.</strong> {formatNumber(metrics.open)} açık fırsatın {formatNumber(metrics.stalled)} tanesi bulunduğu aşamada, o aşamadan çıkan fırsatların %90&apos;ından daha uzun süredir bekliyor. Bunlar kapatılmazsa pipeline ve tahminler gerçeğin üzerinde görünür.</p>
       <p className={styles.insight}><strong>Açık fırsatların %{formatNumber(metrics.openMissingAccount / Math.max(1, metrics.open) * 100)}&apos;i hiçbir şirkete bağlı değil.</strong> Şirketi olmayan {formatNumber(missingAccounts)} kaydın {formatNumber(metrics.openMissingAccount)} tanesi açık aşamalarda. Kayıt girişinde şirket alanı zorunlu değil gibi görünüyor; bu, veriden önce süreç tarafında düzeltilmesi gereken bir sorun.</p>
       <p className={styles.insight}><strong>Mükerrer şirket kayıtları raporları bölüyor.</strong> {formatNumber(duplicateCompanies)} şirket farklı yazımla ikinci kez açılmıştı. Birleştirilmeseydi bu şirketlerin satışları iki ayrı hesapta görünecek ve hesap bazlı analizler yanlış çıkacaktı.</p>
-      <p className={styles.insight}><strong>Tarihsel kazanma oranı {formatPercent(metrics.winRate * 100)}.</strong> Kaynakta olasılık alanı olmadığı için görüşmedeki fırsatların kazanılma olasılığı bu orandan türetildi.</p>
+      <p className={styles.insight}><strong>Baştan sona kazanma oranı {formatPercent(metrics.winRate * 100)}.</strong> Kaynakta olasılık alanı olmadığı için her aşamanın kazanılma olasılığı, aşama geçmişinden hesaplandı: o aşamaya ulaşmış ve sonuçlanmış fırsatların kazanılma oranı.</p>
     </Panel>
     <div className={styles.sectionGap}/>
     <Panel title="Temizlik Günlüğü" description="Uygulanan her kural, etkilediği satır sayısıyla birlikte">

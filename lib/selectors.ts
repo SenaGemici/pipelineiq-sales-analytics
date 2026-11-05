@@ -1,12 +1,13 @@
-﻿import { daysBetween, roundMoney } from "./dates";
+import { daysBetween, roundMoney } from "./dates";
 import { asOfDate, stallDays } from "./seed";
-import type { Company, CrmState, OpportunityRecord, OpportunityView, Product, Representative, Stage } from "./models";
+import type { Company, CrmState, OpenStage, OpportunityRecord, OpportunityView, Product, Representative, Stage } from "./models";
 
-export const isOpen = (op: { stage: Stage }) => op.stage === "Prospecting" || op.stage === "Engaging";
-/** Görüşmesi, kazanılan fırsatların %90'ının kapandığı süreden uzun süren açık fırsat. */
-export const isStalled = (op: { stage: Stage; createdAt: string | null }, referenceDate = asOfDate) =>
-  op.stage === "Engaging" && !!op.createdAt && (daysBetween(op.createdAt, referenceDate) ?? 0) > stallDays;
-export const ageInDays = (op: { createdAt: string | null }, referenceDate = asOfDate) => op.createdAt ? daysBetween(op.createdAt, referenceDate) : null;
+export const isOpen = (op: { stage: Stage }): op is { stage: OpenStage } => op.stage !== "Won" && op.stage !== "Lost";
+/** Bulunduğu aşamada geçen gün sayısı. */
+export const daysInStage = (op: { stageEnteredAt: string | null }, referenceDate = asOfDate) => op.stageEnteredAt ? daysBetween(op.stageEnteredAt, referenceDate) : null;
+/** Bulunduğu aşamada, o aşamadan çıkan fırsatların %90'ından daha uzun süre kalmış açık fırsat. */
+export const isStalled = (op: { stage: Stage; stageEnteredAt: string | null }, referenceDate = asOfDate) =>
+  isOpen(op) && (daysInStage(op, referenceDate) ?? 0) > stallDays[op.stage];
 const sum = <T,>(items: T[], value: (item: T) => number) => roundMoney(items.reduce((total, item) => total + value(item), 0));
 
 export interface Lookups { companies: Map<string, Company>; representatives: Map<string, Representative>; products: Map<string, Product> }
@@ -17,9 +18,10 @@ export function buildLookups(state: CrmState): Lookups {
     products: new Map(state.products.map(product => [product.id, product])),
   };
 }
-/** Açık fırsatta tutar yoksa ürün liste fiyatı tahmin olarak kullanılır; kapanan fırsatta eksik tutar 0 sayılır. */
-export function amountOf(op: Pick<OpportunityRecord, "stage" | "value">, product: Product | undefined) {
-  return op.value ?? (isOpen(op) ? product?.price ?? 0 : 0);
+/** Açık fırsatta tutar yoksa liste fiyatından (varsa teklifteki indirim düşülerek) tahmin edilir; kapanan fırsatta eksik tutar 0 sayılır. */
+export function amountOf(op: Pick<OpportunityRecord, "stage" | "value" | "discount">, product: Product | undefined) {
+  if (op.value !== null) return op.value;
+  return isOpen(op) ? roundMoney((product?.price ?? 0) * (1 - (op.discount ?? 0) / 100)) : 0;
 }
 export function selectOpportunities(state: CrmState, lookups = buildLookups(state)): OpportunityView[] {
   return state.opportunities.map(op => {
@@ -28,7 +30,7 @@ export function selectOpportunities(state: CrmState, lookups = buildLookups(stat
     const rep = op.ownerId ? lookups.representatives.get(op.ownerId) : undefined;
     return { ...op, company: company?.name ?? "Şirket atanmamış", sector: company?.sector ?? null, owner: rep?.name ?? "Atanmamış", region: rep?.region ?? null,
       product: product?.name ?? "Bilinmeyen ürün", listPrice: product?.price ?? 0, amount: amountOf(op, product),
-      estimated: op.value === null && isOpen(op), activityDate: op.closedAt ?? op.createdAt };
+      estimated: op.value === null && isOpen(op), activityDate: op.closedAt ?? op.stageEnteredAt ?? op.createdAt };
   });
 }
 
@@ -52,7 +54,7 @@ export function monthlyRevenue(views: OpportunityView[], months: string[]) {
   return months.map(key => ({ key, ...totals.get(key)!, revenue: roundMoney(totals.get(key)!.revenue),
     label: new Intl.DateTimeFormat("tr-TR", { month: "short", year: "2-digit", timeZone: "UTC" }).format(new Date(`${key}-01T00:00:00Z`)) }));
 }
-/** Görüşme başlangıcından kazanılmaya kadar geçen süre. */
+/** Oluşturulmadan kazanılmaya kadar geçen süre. */
 export function salesCycle(records: Pick<OpportunityRecord, "stage" | "createdAt" | "closedAt">[]) {
   const durations = records.filter(op => op.stage === "Won" && op.createdAt && op.closedAt)
     .map(op => daysBetween(op.createdAt!, op.closedAt!)).filter((days): days is number => days !== null && days >= 0).sort((a, b) => a - b);

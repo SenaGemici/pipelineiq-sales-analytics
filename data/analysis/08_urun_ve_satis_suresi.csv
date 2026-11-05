@@ -1,0 +1,8 @@
+product,series,list_price,deals,win_rate,revenue,median_cycle_days,p90_cycle_days
+Bulut Başlangıç,Bulut,1200,805,0.272,234463.0,20.0,32.400000000000034
+Analitik Lite,Analitik,2400,990,0.2586,550146.0,28.0,42.0
+Güvenlik Kalkan,Güvenlik,3600,760,0.2434,587540.0,31.0,51.0
+Bulut Pro,Bulut,4800,902,0.2472,952794.0,31.0,50.80000000000001
+Analitik Plus,Analitik,7900,854,0.2108,1234628.0,37.0,60.099999999999994
+Bulut Kurumsal,Bulut,14500,1032,0.1831,2451108.0,47.0,76.0
+Güvenlik Tam,Güvenlik,22000,546,0.1648,1786377.0,62.5,88.40000000000003

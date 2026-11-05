@@ -1,1 +1,7 @@
 pandas>=2.2
+numpy>=2.0
+scikit-learn>=1.5
+duckdb>=1.1
+matplotlib>=3.9
+# notebook'ları çalıştırmak için
+jupyter>=1.0

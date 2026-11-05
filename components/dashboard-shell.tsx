@@ -4,18 +4,30 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCrm } from "./crm-provider";
-import { BarChart3, Building2, ChevronRight, Database, GitBranch, LayoutDashboard, Menu, PanelLeftClose, PanelLeftOpen, Settings, ShieldCheck, X } from "lucide-react";
+import { Building2, ChevronRight, Clock3, Database, Filter, GitBranch, Lightbulb, Menu, PanelLeftClose, PanelLeftOpen, Settings, ShieldCheck, TrendingUp, Users, Workflow, X } from "lucide-react";
 import { dashboardClass as css } from "./dashboard-styles";
 
-const navigation = [
-  { href: "/", label: "Genel Bakış", icon: LayoutDashboard },
-  { href: "/satis-firsatlari", label: "Satış Fırsatları", icon: GitBranch },
-  { href: "/sirketler", label: "Şirketler", icon: Building2 },
-  { href: "/veri-kalitesi", label: "Veri Kalitesi", icon: ShieldCheck },
-  { href: "/veri-hazirlama", label: "Veri Hazırlama", icon: Database },
-  { href: "/analizler", label: "Analizler", icon: BarChart3 },
-  { href: "/ayarlar", label: "Ayarlar", icon: Settings },
+// Analiz ekranları öne çıkar: proje bir CRM değil, CRM verisinden satış kararları üreten bir analiz çalışmasıdır.
+const sections = [
+  { title: "Analiz", items: [
+    { href: "/", label: "Bulgular ve Öneriler", icon: Lightbulb },
+    { href: "/huni", label: "Huni ve Kanallar", icon: Filter },
+    { href: "/tahmin", label: "Satış Tahmini", icon: TrendingUp },
+    { href: "/performans", label: "Ekip Performansı", icon: Users },
+    { href: "/satis-suresi", label: "Satış Süresi", icon: Clock3 },
+  ] },
+  { title: "Veri", items: [
+    { href: "/veri-hazirlama", label: "Veri Hazırlama", icon: Database },
+    { href: "/veri-kalitesi", label: "Veri Kalitesi", icon: ShieldCheck },
+  ] },
+  { title: "CRM", items: [
+    { href: "/pipeline", label: "Pipeline", icon: Workflow },
+    { href: "/satis-firsatlari", label: "Satış Fırsatları", icon: GitBranch },
+    { href: "/sirketler", label: "Şirketler", icon: Building2 },
+    { href: "/ayarlar", label: "Ayarlar", icon: Settings },
+  ] },
 ];
+const navigation = sections.flatMap(section => section.items);
 
 function UserProfile() {
   return <div className={css("profile")}><span className={css("avatar")} aria-hidden="true">VA</span><div className={css("nav-text")}><strong>Demo kullanıcı</strong><small>Veri analisti</small></div></div>;
@@ -24,7 +36,7 @@ function UserProfile() {
 export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { warning } = useCrm();
-  const currentPage = navigation.find(item => item.href === pathname)?.label ?? "Genel Bakış";
+  const currentPage = navigation.find(item => item.href === pathname)?.label ?? "Bulgular ve Öneriler";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const drawer = useRef<HTMLDialogElement>(null);
@@ -46,12 +58,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }, []);
 
   function navItems() {
-    return navigation.map(({ label, icon: Icon, href }) => <Link key={label} href={href}
+    return sections.map(section => <div key={section.title} className={css("nav-section")}><p className={css("nav-section-title nav-text")}>{section.title}</p>{section.items.map(({ label, icon: Icon, href }) => <Link key={label} href={href}
       className={css(`nav-item ${pathname === href ? "active" : ""}`)} title={collapsed ? label : undefined}
       aria-label={label} aria-current={pathname === href ? "page" : undefined}
       onClick={() => drawer.current?.close()}>
       <Icon size={20} aria-hidden="true"/><span className={css("nav-text")}>{label}</span>
-    </Link>);
+    </Link>)}</div>);
   }
 
   return <div className={css(`app-shell ${collapsed ? "sidebar-collapsed" : ""}`)} data-dashboard>
@@ -77,7 +89,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         <button ref={desktopTrigger} type="button" className={css("icon-button desktop-toggle")} aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"} aria-expanded={!collapsed} aria-controls="desktop-navigation" onClick={() => setCollapsed(value => !value)}>{collapsed ? <PanelLeftOpen size={20}/> : <PanelLeftClose size={20}/>}</button>
         <button ref={trigger} type="button" className={css("icon-button mobile-toggle")} aria-label="Menüyü aç" aria-haspopup="dialog" aria-expanded={mobileOpen} aria-controls="mobile-navigation" onClick={() => { drawer.current?.showModal(); setMobileOpen(true); }}><Menu size={21}/></button>
         <nav aria-label="Sayfa konumu" className={css("breadcrumb")}><span>Çalışma alanı</span><ChevronRight size={14}/><span aria-current="page">{currentPage}</span></nav>
-      </div><span className={css("demo-label")} title="Sentetik CRM verisi: tüm şirketler, kişiler ve ürünler kurgusaldır. Analiz tarihi 31.10.2026.">Sentetik veri</span></header>
+      </div><span className={css("demo-label")} title="Sentetik CRM verisi: tüm şirketler, kişiler ve ürünler kurgusaldır. Analiz tarihi 31.10.2026.">Sentetik veri · vaka çalışması</span></header>
       {warning && <div className={css("notice")} role="alert">{warning}</div>}
       {children}
     </div>

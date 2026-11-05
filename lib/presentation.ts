@@ -2,11 +2,13 @@ import type { OpportunityView, Stage } from "./models";
 
 export const stageLabels: Record<Stage, string> = {
   Prospecting: "Potansiyel",
-  Engaging: "Görüşmede",
+  Qualification: "Nitelendirme",
+  Proposal: "Teklif",
+  Negotiation: "Müzakere",
   Won: "Kazanıldı",
   Lost: "Kaybedildi",
 };
-export const stageColors: Record<Stage, string> = { Prospecting: "#60a5fa", Engaging: "#a78bfa", Won: "#10b981", Lost: "#e87979" };
+export const stageColors: Record<Stage, string> = { Prospecting: "#93c5fd", Qualification: "#60a5fa", Proposal: "#a78bfa", Negotiation: "#fbbf24", Won: "#10b981", Lost: "#e87979" };
 
 /** Boş değerleri tabloda "—" olarak gösterir. */
 export const orDash = (value: string | null | undefined) => value || "—";
@@ -23,9 +25,9 @@ export function formatAxis(value: number) {
 }
 
 export function buildCsv(data: OpportunityView[]) {
-  const headers = ["Fırsat No", "Şirket", "Ürün", "Aşama", "Tutar (USD)", "Tutar türü", "Olasılık (%)", "Sorumlu", "Bölge", "Görüşme Tarihi", "Kapanış Tarihi"];
-  const rows = data.map(op => [op.id, op.company, op.product, stageLabels[op.stage], op.amount, op.estimated ? "Liste fiyatı tahmini" : "Gerçekleşen",
-    op.probability, op.owner, orDash(op.region), op.createdAt ?? "", op.closedAt ?? ""]);
+  const headers = ["Fırsat No", "Şirket", "Ürün", "Aşama", "Tutar (USD)", "Tutar türü", "Olasılık (%)", "Sorumlu", "Bölge", "Kaynak Kanal", "İndirim (%)", "Oluşturulma", "Kapanış", "Kayıp Nedeni"];
+  const rows = data.map(op => [op.id, op.company, op.product, stageLabels[op.stage], op.amount, op.estimated ? "Tahmini" : "Gerçekleşen",
+    op.probability, op.owner, orDash(op.region), op.leadSource ?? "", op.discount ?? "", op.createdAt ?? "", op.closedAt ?? "", op.lossReason ?? ""]);
   const escape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
   return String.fromCharCode(0xfeff) /* Excel için UTF-8 BOM */ + [headers, ...rows].map(row => row.map(escape).join(",")).join("\r\n");
 }

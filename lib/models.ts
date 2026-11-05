@@ -1,7 +1,8 @@
-// Satış aşamaları: Prospecting (potansiyel) > Engaging (görüşmede) > Won / Lost
-export const opportunityStages = ["Prospecting", "Engaging", "Won", "Lost"] as const;
+// Satış hunisi: Potansiyel > Nitelendirme > Teklif > Müzakere > Kazanıldı / Kaybedildi
+export const opportunityStages = ["Prospecting", "Qualification", "Proposal", "Negotiation", "Won", "Lost"] as const;
 export type Stage = (typeof opportunityStages)[number];
-export const openStages: readonly Stage[] = ["Prospecting", "Engaging"];
+export const openStages = ["Prospecting", "Qualification", "Proposal", "Negotiation"] as const;
+export type OpenStage = (typeof openStages)[number];
 export type DateOnly = string;
 
 export interface Company {
@@ -23,14 +24,19 @@ export interface OpportunityRecord {
   productId: string;
   ownerId: string | null;
   stage: Stage;
-  /** Gerçekleşen satış tutarı. Açık fırsatlarda genellikle boştur; tahmin ürün liste fiyatından gelir. */
+  /** Gerçekleşen satış tutarı. Açık fırsatlarda boştur; tahmin liste fiyatı ve indirimden hesaplanır. */
   value: number | null;
   probability: number;
-  /** Engaging aşamasına geçiş (görüşme başlangıcı) tarihi */
   createdAt: DateOnly | null;
+  /** Şu anki aşamaya giriş tarihi; aşamada geçen süre ve takılma kuralı buna göre hesaplanır. */
+  stageEnteredAt: DateOnly | null;
   closedAt: DateOnly | null;
+  leadSource: string | null;
+  lossReason: string | null;
+  /** Teklifte verilen indirim, yüzde */
+  discount: number | null;
 }
-export type OpportunityInput = Omit<OpportunityRecord, "id" | "closedAt">;
+export type OpportunityInput = Omit<OpportunityRecord, "id" | "closedAt" | "stageEnteredAt">;
 export type CompanyInput = Omit<Company, "id">;
 export interface Preferences {
   currencyDisplay: "symbol" | "code";
@@ -55,6 +61,6 @@ export interface OpportunityView extends OpportunityRecord {
   /** Hesaplamalarda kullanılan tutar: gerçekleşen tutar, yoksa açık fırsatta liste fiyatı. */
   amount: number;
   estimated: boolean;
-  /** Son hareket tarihi: kapanış, yoksa görüşme tarihi. */
+  /** Son hareket tarihi: kapanış, yoksa şu anki aşamaya giriş tarihi. */
   activityDate: DateOnly | null;
 }

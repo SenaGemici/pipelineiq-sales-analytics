@@ -1,0 +1,6 @@
+stage,step,deals,share_of_leads,conversion_from_previous
+Prospecting,1,5889,1.0,
+Qualification,2,4061,0.6896,0.6896
+Proposal,3,2824,0.4795,0.6954
+Negotiation,4,1810,0.3074,0.6409
+Won,5,1342,0.2279,0.7414
