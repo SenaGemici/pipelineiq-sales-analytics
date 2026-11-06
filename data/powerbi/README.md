@@ -1,5 +1,9 @@
 # PipelineIQ · Power BI Raporu Kurulumu
 
+Hazır rapor: [`PipelineIQ.pbix`](PipelineIQ.pbix) ([PDF](PipelineIQ.pdf)). Dosya CSV'leri bu klasörden okur; başka bir bilgisayarda açarken
+**Transform data → Data source settings** ile klasör yolunu güncelleyin. Türkçe bölge ayarlı bilgisayarlarda **Options → Current file →
+Regional settings → Locale for import** değerini **English (United States)** yapın; aksi halde ondalık sayılar yanlış okunur.
+
 Bu klasör, analizlerin Power BI'da yeniden kurulabilmesi için yıldız şeması (star schema) biçiminde hazırlanmış tabloları içerir.
 Tablolar `python pipeline/export_powerbi.py` ile üretilir.
 

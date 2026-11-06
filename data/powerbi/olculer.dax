@@ -14,6 +14,11 @@ Kazanma Oranı = DIVIDE ( [Kazanılan Fırsat], [Kazanılan Fırsat] + [Kaybedil
 Kazanılan Gelir =
 CALCULATE ( SUM ( fact_opportunity[close_value] ), fact_opportunity[is_won] = 1 )
 
+// Etkin ilişki oluşturulma tarihidir; gelir grafiklerinde ay eksenini kapanış tarihine bağlamak için
+// etkin olmayan close_date ilişkisi bu ölçü içinde devreye alınır. Ay eksenine dim_date[year_month] koyun.
+Kazanılan Gelir (Kapanış Ayına Göre) =
+CALCULATE ( [Kazanılan Gelir], USERELATIONSHIP ( fact_opportunity[close_date], dim_date[date] ) )
+
 Ortalama Satış Tutarı =
 CALCULATE ( AVERAGE ( fact_opportunity[close_value] ), fact_opportunity[is_won] = 1 )
 

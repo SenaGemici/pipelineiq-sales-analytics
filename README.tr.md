@@ -36,6 +36,20 @@ Satış yönetimi üç soruya güvenilir cevap istiyor:
 Bulgu metinleri sabit yazılmadı: [`pipeline/analyze.py`](pipeline/analyze.py) her çalıştırmada sayıları hesaplayıp metinleri
 bunlardan üretir; veri değişirse bulgular da değişir.
 
+## Power BI raporu
+
+Aynı analiz, yıldız şeması (fırsat ve aşama geçmişi olgu tabloları; şirket, temsilci, ürün ve tarih boyutları) ve DAX
+ölçüleriyle Power BI'da yeniden kuruldu. Dosya: [`data/powerbi/PipelineIQ.pbix`](data/powerbi/PipelineIQ.pbix) ·
+[PDF](data/powerbi/PipelineIQ.pdf) · [kurulum rehberi ve veri modeli](data/powerbi/README.md) · [DAX ölçüleri](data/powerbi/olculer.dax)
+
+| Yönetici Özeti | Huni ve Kanallar | Ekip Performansı |
+|---|---|---|
+| ![Yönetici özeti: tahmin kartları, geriye dönük test ve takılmış pipeline](docs/powerbi/1-yonetici-ozeti.png) | ![Huni, aşama geçiş oranı, kanal tablosu ve kayıp nedenleri](docs/powerbi/2-huni-ve-kanallar.png) | ![Güven aralıklı düzeltilmiş temsilci tablosu, Outbound payı ve kazanma oranı, indirim etkisi](docs/powerbi/3-ekip-performansi.png) |
+
+Öne çıkanlar: geriye dönük test grafiği tahmin yöntemlerini ay ay karşılaştırır; huni yalnızca sonuçlanmış fırsatları kullanır;
+temsilci tablosu %95 güven aralığının tamamı şirket ortalamasının altında kalanları işaretler; indirim grafiği kazanma oranının
+%10-15 diliminde zirve yaptığını gösterir.
+
 ## Yöntem
 
 ```text
@@ -119,7 +133,7 @@ Belirsizlik Wilson %95 güven aralığıyla gösterilir.
 | [`pipeline/`](pipeline) | `generate_raw.py` (sentetik veri) → `build_dataset.py` (temizlik) → `analyze.py` (SQL + model + bulgular) → `export_powerbi.py`; ortak kütüphane `analytics.py` |
 | [`analysis/sql/`](analysis/sql) | İş sorusu başına bir DuckDB sorgusu |
 | [`notebooks/`](notebooks) | 01 keşifsel analiz · 02 kazanma modeli · 03 tahmin ve geriye dönük test (çıktılarıyla) |
-| [`data/`](data) | `raw/` (kirli) · `clean/` (temiz) · `analysis/` (analiz sonuçları) · [`powerbi/`](data/powerbi) (yıldız şeması, DAX ölçüleri, kurulum rehberi) |
+| [`data/`](data) | `raw/` (kirli) · `clean/` (temiz) · `analysis/` (analiz sonuçları) · [`powerbi/`](data/powerbi) (yıldız şeması, DAX ölçüleri, kurulum rehberi, `.pbix` rapor) |
 | `app/`, `components/`, `lib/` | Web uygulaması (Next.js, TypeScript, Recharts) |
 
 ## Yeniden üretme

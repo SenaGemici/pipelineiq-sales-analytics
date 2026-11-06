@@ -38,6 +38,20 @@ Sales leadership needs reliable answers to three questions:
 The insight texts are not hard-coded: [`pipeline/analyze.py`](pipeline/analyze.py) computes the numbers on every run and
 generates the texts from them; if the data changes, the findings change.
 
+## Power BI report
+
+The same analysis is rebuilt in Power BI on a star schema (opportunity and stage-history facts; company, rep, product and
+date dimensions) with DAX measures. File: [`data/powerbi/PipelineIQ.pbix`](data/powerbi/PipelineIQ.pbix) ·
+[PDF](data/powerbi/PipelineIQ.pdf) · [setup guide and data model](data/powerbi/README.md) · [DAX measures](data/powerbi/olculer.dax)
+
+| Executive summary | Funnel & channels | Team performance |
+|---|---|---|
+| ![Executive summary: forecast cards, backtest and stalled pipeline](docs/powerbi/1-yonetici-ozeti.png) | ![Funnel, stage conversion, channel table and loss reasons](docs/powerbi/2-huni-ve-kanallar.png) | ![Mix-adjusted rep table with confidence intervals, outbound share vs. win rate, discount effect](docs/powerbi/3-ekip-performansi.png) |
+
+Highlights: the backtest chart compares the forecast methods month by month; the funnel uses resolved deals only; the rep table
+flags reps whose entire 95% confidence interval is below the company average; the discount chart shows the win rate peaking
+in the 10–15% band.
+
 ## Method
 
 ```text
@@ -120,7 +134,7 @@ confidence intervals.
 | [`pipeline/`](pipeline) | `generate_raw.py` (synthetic data) → `build_dataset.py` (cleaning) → `analyze.py` (SQL + model + insights) → `export_powerbi.py`; shared library `analytics.py` |
 | [`analysis/sql/`](analysis/sql) | One DuckDB query per business question |
 | [`notebooks/`](notebooks) | 01 exploratory analysis · 02 win model · 03 forecast and backtest (with outputs, in Turkish) |
-| [`data/`](data) | `raw/` (dirty) · `clean/` (clean) · `analysis/` (analysis results) · [`powerbi/`](data/powerbi) (star schema, DAX measures, setup guide) |
+| [`data/`](data) | `raw/` (dirty) · `clean/` (clean) · `analysis/` (analysis results) · [`powerbi/`](data/powerbi) (star schema, DAX measures, setup guide, `.pbix` report) |
 | `app/`, `components/`, `lib/` | Web app (Next.js, TypeScript, Recharts) |
 
 ## Reproduce
