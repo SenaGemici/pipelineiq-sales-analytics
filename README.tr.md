@@ -2,6 +2,8 @@
 
 [English](README.md) · **Türkçe**
 
+**Canlı uygulama:** https://pipelineiq-sales-analytics.vercel.app
+
 Bir B2B yazılım şirketinin CRM verisini **temizleyen, analiz eden ve satış kararlarına çeviren** uçtan uca bir veri analizi
 vaka çalışması: Python ile veri hazırlama, DuckDB ile SQL analizleri, lojistik regresyon ile kazanma olasılığı modeli,
 geriye dönük tahmin testi, Jupyter notebook'ları, Power BI paketi ve sonuçları sunan bir web uygulaması.

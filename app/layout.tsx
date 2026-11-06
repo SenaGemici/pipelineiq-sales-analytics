@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PipelineIQ | CRM Veri Yönetimi",
-  description: "CRM verisini temizleyin, veri kalitesini takip edin ve satış performansını analiz edin.",
+  title: "PipelineIQ | Satış Analitiği",
+  description: "CRM verisinden satış kararlarına: huni ve kanal analizi, kazanma olasılığı modeli, geriye dönük test edilmiş satış tahmini ve ekip performansı.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

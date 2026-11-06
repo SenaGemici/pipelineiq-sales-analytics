@@ -2,6 +2,8 @@
 
 **English** · [Türkçe](README.tr.md)
 
+**Live app:** https://pipelineiq-sales-analytics.vercel.app
+
 An end-to-end data analysis case study that **cleans, analyzes and turns the CRM data of a B2B software company into sales
 decisions**: data preparation in Python, SQL analysis with DuckDB, a logistic regression win-probability model, forecast
 backtesting, Jupyter notebooks, a Power BI package, and a web app that presents the results.
