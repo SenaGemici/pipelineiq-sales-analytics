@@ -163,6 +163,3 @@ node --test scripts/check-data.mjs   # data, cleaning, metric and analysis consi
 The analysis screens are reports computed from the base data; the CRM screens are live (edits are stored in the browser and
 tagged with the data version). `check-data.mjs` also tests that the amounts computed by the app and the definition of a stalled
 deal match the Python analysis layer exactly.
-
-> The browser tests `scripts/check-dashboard.mjs` and `scripts/check-crm.mjs` were written for the earlier demo data and need
-> to be updated.

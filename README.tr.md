@@ -162,6 +162,3 @@ node --test scripts/check-data.mjs   # veri, temizlik, metrik ve analiz tutarlı
 Analiz ekranları temel veri üzerinden hesaplanmış raporlardır; CRM ekranları ise canlıdır (düzenlemeler tarayıcıda saklanır,
 veri sürümüyle etiketlenir). `check-data.mjs`, uygulamanın hesapladığı tutarların ve takılmış fırsat tanımının Python analiz
 katmanıyla birebir aynı olduğunu da test eder.
-
-> `scripts/check-dashboard.mjs` ve `scripts/check-crm.mjs` tarayıcı testleri önceki demo verisine göre yazılmıştır ve
-> güncellenmeleri gerekir.
